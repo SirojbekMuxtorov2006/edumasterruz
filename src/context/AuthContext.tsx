@@ -35,6 +35,9 @@ type AuthResponse = {
 	user: User | null;
 };
 
+// /auth/me may return the user directly OR wrapped in { user }
+type MeResponse = User | AuthResponse;
+
 type AuthContextType = {
 	user: User | null;
 	loading: boolean;
@@ -58,6 +61,15 @@ const getErrorMessage = (err: unknown, fallback: string): string => {
 	}
 	if (err instanceof Error) return err.message;
 	return fallback;
+};
+
+/** Normalize /auth/me response — backend may return User directly or { user } */
+const extractUser = (data: MeResponse): User | null => {
+	if (!data) return null;
+	// If response has an `email` field at top level → it's a User object directly
+	if ('email' in data && 'id' in data) return data as User;
+	// Otherwise it's wrapped: { message, user }
+	return (data as AuthResponse).user ?? null;
 };
 
 // ---------------------------------------------------------------------------
@@ -89,8 +101,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setLoading(true);
 		try {
 			await api.post('/auth/refresh');
-			const { data } = await api.get<AuthResponse>('/auth/me');
-			setUser(data.user);
+			const { data } = await api.get<MeResponse>('/auth/me');
+			setUser(extractUser(data));
 		} catch {
 			setUser(null);
 		} finally {
@@ -119,6 +131,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		}
 	}, []);
 
+	// FIX: argument order was (email, password, fullName) in context type
+	// but Register.tsx called signUp(email.trim(), password, fullName.trim())
+	// — now signatures are consistent everywhere.
 	const signUp = useCallback(
 		async (email: string, password: string, fullName: string): Promise<AuthResponse> => {
 			setError(null);

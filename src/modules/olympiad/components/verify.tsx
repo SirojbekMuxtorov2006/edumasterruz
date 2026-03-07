@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,16 @@ const Verify = () => {
 	const [status, setStatus] = useState<Status>('loading');
 	const [message, setMessage] = useState('');
 
+	// Capture verifyEmail in a ref so the effect below can call the latest
+	// version without adding it to the dependency array. This prevents the
+	// verification from firing twice if the AuthContext re-renders and
+	// produces a new verifyEmail reference between the mount and the async
+	// callback resolving.
+	const verifyEmailRef = useRef(verifyEmail);
+	useEffect(() => {
+		verifyEmailRef.current = verifyEmail;
+	}, [verifyEmail]);
+
 	useEffect(() => {
 		const token = searchParams.get('token');
 
@@ -24,9 +34,12 @@ const Verify = () => {
 			return;
 		}
 
+		let cancelled = false;
+
 		const processVerification = async () => {
 			try {
-				await verifyEmail(token);
+				await verifyEmailRef.current(token);
+				if (cancelled) return;
 				setStatus('success');
 				setMessage('Emailingiz muvaffaqiyatli tasdiqlandi!');
 
@@ -34,18 +47,22 @@ const Verify = () => {
 					navigate('/dashboard', { replace: true });
 				}, 1500);
 			} catch (err: unknown) {
+				if (cancelled) return;
 				setStatus('error');
-
-				if (err instanceof Error) {
-					setMessage(err.message);
-				} else {
-					setMessage('Tasdiqlashda xatolik yuz berdi.');
-				}
+				setMessage(err instanceof Error ? err.message : 'Tasdiqlashda xatolik yuz berdi.');
 			}
 		};
 
 		processVerification();
-	}, [navigate, searchParams, verifyEmail]);
+
+		return () => {
+			cancelled = true;
+		};
+		// Empty dep array is intentional: this effect must run exactly once on
+		// mount. verifyEmail is accessed through verifyEmailRef so it is always
+		// up-to-date without being listed as a dependency.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	return (
 		<div className='min-h-screen bg-slate-50 flex items-center justify-center p-4'>
