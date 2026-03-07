@@ -7,6 +7,22 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserPlus, Loader2, MailCheck, AlertCircle, User } from 'lucide-react';
 
+// ---------------------------------------------------------------------------
+// Frontend error message translations.
+// Backend sends raw translation keys (e.g. "email_already_exists") as the
+// `detail` field. We map them here so the user sees a real message.
+// ---------------------------------------------------------------------------
+const ERROR_MESSAGES: Record<string, string> = {
+	email_already_exists: "Bu email allaqachon ro'yxatdan o'tgan. Iltimos, boshqa email kiriting.",
+	invalid_email: "Email manzil noto'g'ri formatda.",
+	password_too_short: "Parol kamida 8 ta belgidan iborat bo'lishi kerak.",
+	internal_error: "Server xatosi yuz berdi. Iltimos, keyinroq urinib ko'ring.",
+};
+
+const translateError = (msg: string): string => ERROR_MESSAGES[msg] ?? msg;
+
+// ---------------------------------------------------------------------------
+
 const Register = () => {
 	const { signUp } = useAuth();
 
@@ -19,6 +35,10 @@ const Register = () => {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+
+		// Guard: prevent double-submit (defensive, in case disabled attr is bypassed)
+		if (submitting) return;
+
 		setError(null);
 		setSubmitting(true);
 
@@ -26,11 +46,9 @@ const Register = () => {
 			await signUp(email.trim(), password, fullName.trim());
 			setIsSuccess(true);
 		} catch (err: unknown) {
-			if (err instanceof Error) {
-				setError(err.message);
-			} else {
-				setError("Ro'yxatdan o'tishda xatolik yuz berdi");
-			}
+			const raw = err instanceof Error ? err.message : "Ro'yxatdan o'tishda xatolik yuz berdi";
+			// FIX: translate backend error keys into human-readable Uzbek messages
+			setError(translateError(raw));
 		} finally {
 			setSubmitting(false);
 		}

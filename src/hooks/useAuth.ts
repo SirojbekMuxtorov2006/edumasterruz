@@ -26,10 +26,21 @@ type MeResponse = User | AuthResponse;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract a human-readable error message from any thrown value.
+ *
+ * FIX: FastAPI validation errors return `detail` as an array of objects
+ * e.g. [{ loc, msg, type }]. The original code only handled string detail,
+ * so validation errors silently fell through to the generic fallback.
+ */
 const getErrorMessage = (err: unknown, fallback: string): string => {
 	if (axios.isAxiosError(err)) {
 		const detail = err.response?.data?.detail;
 		if (typeof detail === 'string') return detail;
+		// FastAPI 422 validation errors: detail is an array of { loc, msg, type }
+		if (Array.isArray(detail) && detail.length > 0) {
+			return detail.map((d: { msg?: string }) => d.msg ?? fallback).join(', ');
+		}
 	}
 	if (err instanceof Error) return err.message;
 	return fallback;
@@ -37,7 +48,6 @@ const getErrorMessage = (err: unknown, fallback: string): string => {
 
 /**
  * Normalize /auth/me response — backend may return a User directly or { user }.
- * FIX: Ported from AuthContext.tsx to handle both shapes correctly.
  */
 const extractUser = (data: MeResponse): User | null => {
 	if (!data) return null;
@@ -55,20 +65,31 @@ export const useAuth = () => {
 	const [error, setError] = useState<string | null>(null);
 
 	// -----------------------------------------------------------------------
-	// checkAuth — declared first so verifyEmail can reference it safely.
+	// checkAuth — runs on mount to rehydrate the session.
 	//
-	// FIX: checkAuth was declared *after* verifyEmail in the original file.
-	// Because const is not hoisted, verifyEmail's useCallback captured an
-	// undefined reference to checkAuth (temporal dead zone bug).
+	// Strategy:
+	//   1. POST /auth/refresh  → rotates the access token cookie
+	//   2. GET  /auth/me       → returns the current user
+	//
+	// Only 401 is expected when no session exists. Any other error is logged
+	// so it doesn't disappear silently during debugging.
 	// -----------------------------------------------------------------------
 	const checkAuth = useCallback(async () => {
 		setLoading(true);
+		// FIX: reset error state so stale errors don't persist across re-checks
+		setError(null);
 		try {
 			await api.post('/auth/refresh');
 			const { data } = await api.get<MeResponse>('/auth/me');
-			// FIX: use extractUser to handle both { user } and bare User shapes.
 			setUser(extractUser(data));
-		} catch {
+		} catch (err) {
+			// FIX: only log unexpected errors — a 401 on refresh is normal
+			// when the user isn't logged in yet and shouldn't pollute the console.
+			if (axios.isAxiosError(err) && err.response?.status === 401) {
+				// Expected: no active session
+			} else {
+				console.error('checkAuth: unexpected error', err);
+			}
 			setUser(null);
 		} finally {
 			setLoading(false);
@@ -80,9 +101,7 @@ export const useAuth = () => {
 	}, [checkAuth]);
 
 	// -----------------------------------------------------------------------
-	// Auth actions
-	// FIX: all four were plain async functions — recreated on every render.
-	// Wrapped in useCallback for referential stability.
+	// Auth actions — all wrapped in useCallback for referential stability.
 	// -----------------------------------------------------------------------
 
 	const signIn = useCallback(async (email: string, password: string) => {
@@ -114,7 +133,6 @@ export const useAuth = () => {
 		}
 	}, []);
 
-	// FIX: checkAuth is now declared above, so this reference is safe.
 	const verifyEmail = useCallback(
 		async (token: string) => {
 			setError(null);
@@ -133,10 +151,14 @@ export const useAuth = () => {
 	);
 
 	const signOut = useCallback(async () => {
+		// FIX: clear error state on sign-out so stale errors don't bleed
+		// into the next login attempt's UI.
+		setError(null);
 		try {
 			await api.post('/auth/logout');
 		} catch (err) {
-			console.error('Logout error:', err);
+			// Log but don't surface — the user is signing out regardless.
+			console.error('signOut: server error (ignored)', err);
 		} finally {
 			// Clear local state regardless of server response.
 			setUser(null);
