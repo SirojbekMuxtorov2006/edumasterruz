@@ -3,6 +3,8 @@ import { Toaster as Sonner } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import { AuthProvider } from '@/context/AuthContext';
 import NotFound from './pages/NotFound';
 import OlympiadResult from './modules/olympiad/components/OlympiadResult';
 import OlympiadDashboard from './modules/olympiad/components/OlympiadDashboard';
@@ -18,53 +20,51 @@ import Contact from './modules/olympiad/components/Contact';
 import Gallery from './modules/olympiad/components/Gallery';
 import Login from './modules/olympiad/components/Login';
 import Register from './modules/olympiad/components/Register';
-import Verify from './modules/olympiad/components/verify';
+import ProtectedRoute from './modules/olympiad/components/ProtectedRoute';
+import Verify from './modules/olympiad/components/Register';
 
 const queryClient = new QueryClient();
 
 const App = () => (
 	<QueryClientProvider client={queryClient}>
-		<TooltipProvider>
-			<Toaster />
-			<Sonner />
-			<BrowserRouter>
-				<Routes>
-					{/* ========================================================================================= */}
-					{/* OLYMPIAD MVP ROUTES */}
-					{/* ========================================================================================= */}
+		<AuthProvider>
+			<TooltipProvider>
+				<Toaster />
+				<Sonner />
 
-					{/* New Home: Landing Page */}
-					<Route path='/' element={<LandingPage />} />
+				<BrowserRouter>
+					<Routes>
+						{/* Home */}
+						<Route path='/' element={<LandingPage />} />
 
-					{/* Public Pages */}
-					<Route path='/about' element={<About />} />
-					<Route path='/board-members' element={<BoardMembers />} />
-					<Route path='/rules' element={<Rules />} />
-					<Route path='/gallery' element={<Gallery />} />
-					<Route path='/contact' element={<Contact />} />
+						{/* Public Pages */}
+						<Route path='/about' element={<About />} />
+						<Route path='/board-members' element={<BoardMembers />} />
+						<Route path='/rules' element={<Rules />} />
+						<Route path='/gallery' element={<Gallery />} />
+						<Route path='/contact' element={<Contact />} />
+						<Route path='/olympiads' element={<OlympiadList />} />
+						<Route path='/register-olympiad' element={<Registration />} />
 
-					{/* Auth */}
-					<Route path='/login' element={<Login />} />
-					<Route path='/register' element={<Register />} />
-					<Route path='/verify' element={<Verify />} />
+						{/* Auth */}
+						<Route path='/login' element={<Login />} />
+						<Route path='/register' element={<Register />} />
+						<Route path='/verify' element={<Verify />} />
 
-					{/* Protected Dashboard */}
-					<Route path='/dashboard' element={<OlympiadDashboard />} />
-					<Route path='/profile' element={<ProfilePage />} />
+						{/* Protected Routes */}
+						<Route element={<ProtectedRoute />}>
+							<Route path='/dashboard' element={<OlympiadDashboard />} />
+							<Route path='/profile' element={<ProfilePage />} />
+							<Route path='/quiz/:id' element={<QuizInterface />} />
+							<Route path='/olympiad/:id/result' element={<OlympiadResult />} />
+						</Route>
 
-					{/* Olympiad List — barcha olimpiadalar ro'yxati */}
-					<Route path='/olympiads' element={<OlympiadList />} />
-
-					{/* Dedicated Quiz Interface */}
-					<Route path='/quiz/:id' element={<QuizInterface />} />
-					<Route path='/olympiad/:id/result' element={<OlympiadResult />} />
-
-					{/* ========================================================================================= */}
-
-					<Route path='*' element={<NotFound />} />
-				</Routes>
-			</BrowserRouter>
-		</TooltipProvider>
+						{/* 404 */}
+						<Route path='*' element={<NotFound />} />
+					</Routes>
+				</BrowserRouter>
+			</TooltipProvider>
+		</AuthProvider>
 	</QueryClientProvider>
 );
 

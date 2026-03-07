@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,11 +10,9 @@ import { UserPlus, Loader2, MailCheck, AlertCircle, User } from 'lucide-react';
 const Register = () => {
 	const { signUp } = useAuth();
 
-	// State-lar
 	const [fullName, setFullName] = useState('');
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
-
 	const [submitting, setSubmitting] = useState(false);
 	const [isSuccess, setIsSuccess] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -25,18 +23,19 @@ const Register = () => {
 		setSubmitting(true);
 
 		try {
-			// signUp funksiyasiga endi fullName-ni ham yuboramiz
 			await signUp(email.trim(), password, fullName.trim());
 			setIsSuccess(true);
-		} catch (err) {
-			// Xatolik xabarini ko'rsatish
-			setError(err.message || "Ro'yxatdan o'tishda xatolik yuz berdi");
+		} catch (err: unknown) {
+			if (err instanceof Error) {
+				setError(err.message);
+			} else {
+				setError("Ro'yxatdan o'tishda xatolik yuz berdi");
+			}
 		} finally {
 			setSubmitting(false);
 		}
 	};
 
-	// Muvaffaqiyatli ro'yxatdan o'tgandagi ko'rinish
 	if (isSuccess) {
 		return (
 			<div className='min-h-screen bg-slate-50 flex items-center justify-center p-4'>
@@ -44,18 +43,21 @@ const Register = () => {
 					<div className='mx-auto bg-green-50 p-4 rounded-full w-fit mb-4'>
 						<MailCheck className='w-12 h-12 text-green-600' />
 					</div>
+
 					<CardTitle className='text-2xl font-bold text-slate-900'>
-						Pochtangizni tekshiring!
+						Pochtangizni tekshiring
 					</CardTitle>
+
 					<CardDescription className='mt-4 text-base'>
-						Hurmatli <b>{fullName}</b>, biz {email} manziliga tasdiqlash xatini yubordik. Iltimos,
-						pochtangizdagi havola orqali hisobingizni faollashtiring.
+						Hurmatli <b>{fullName}</b>, biz <b>{email}</b> manziliga tasdiqlash xatini yubordik.
+						Iltimos, pochtangizdagi havola orqali hisobingizni faollashtiring.
 					</CardDescription>
+
 					<Button
 						onClick={() => (window.location.href = '/login')}
 						className='w-full mt-8 bg-indigo-600 hover:bg-indigo-700 h-11'
 					>
-						Kirish sahifasiga o'tish
+						Kirish sahifasiga o&apos;tish
 					</Button>
 				</Card>
 			</div>
@@ -69,14 +71,14 @@ const Register = () => {
 					<div className='mx-auto bg-indigo-50 p-3 rounded-full w-fit mb-2'>
 						<UserPlus className='w-8 h-8 text-indigo-600' />
 					</div>
-					<CardTitle className='text-2xl font-bold'>Ro'yxatdan o'tish</CardTitle>
+					<CardTitle className='text-2xl font-bold'>Ro&apos;yxatdan o&apos;tish</CardTitle>
 					<CardDescription>Turon Olimpiadasi tizimida hisob yarating</CardDescription>
 				</CardHeader>
+
 				<CardContent>
 					<form onSubmit={handleSubmit} className='space-y-4'>
-						{/* To'liq ism (Full Name) */}
 						<div className='space-y-2'>
-							<Label htmlFor='fullName'>To'liq ism va familiyangiz</Label>
+							<Label htmlFor='fullName'>To&apos;liq ism va familiyangiz</Label>
 							<div className='relative'>
 								<User className='absolute left-3 top-3 w-4 h-4 text-slate-400' />
 								<Input
@@ -90,7 +92,6 @@ const Register = () => {
 							</div>
 						</div>
 
-						{/* Email */}
 						<div className='space-y-2'>
 							<Label htmlFor='email'>Elektron pochta</Label>
 							<Input
@@ -103,7 +104,6 @@ const Register = () => {
 							/>
 						</div>
 
-						{/* Parol */}
 						<div className='space-y-2'>
 							<Label htmlFor='password'>Parol</Label>
 							<Input
@@ -115,11 +115,10 @@ const Register = () => {
 								required
 							/>
 							<p className='text-[11px] text-slate-500 italic'>
-								Kamida 8 ta belgidan iborat bo'lsin
+								Kamida 8 ta belgidan iborat bo&apos;lsin
 							</p>
 						</div>
 
-						{/* Xatolik xabari */}
 						{error && (
 							<div className='flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-100'>
 								<AlertCircle className='w-5 h-5 flex-shrink-0' />
@@ -127,11 +126,10 @@ const Register = () => {
 							</div>
 						)}
 
-						{/* Yuborish tugmasi */}
 						<Button
 							type='submit'
 							disabled={submitting}
-							className='w-full bg-indigo-600 hover:bg-indigo-700 h-11 text-white font-semibold transition-all'
+							className='w-full bg-indigo-600 hover:bg-indigo-700 h-11 text-white font-semibold'
 						>
 							{submitting ? (
 								<div className='flex items-center gap-2'>
@@ -145,10 +143,7 @@ const Register = () => {
 
 						<div className='text-center text-sm text-slate-600 pt-2'>
 							Hisobingiz bormi?{' '}
-							<Link
-								to='/login'
-								className='text-indigo-600 font-bold hover:underline transition-colors'
-							>
+							<Link to='/login' className='text-indigo-600 font-bold hover:underline'>
 								Kirish
 							</Link>
 						</div>
